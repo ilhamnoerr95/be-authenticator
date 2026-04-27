@@ -12,17 +12,14 @@ export class AuthController {
 
   // create users
   @Post('register')
-  create(@Body() registerUserDto: RegisterUser) {
+  async create(@Body() registerUserDto: RegisterUser) {
     console.log('create user', {
       email: registerUserDto.email,
       password: registerUserDto.password,
     });
 
-    const result = this.authService.create(registerUserDto);
-    return {
-      message: result.message,
-      data: result.data,
-    };
+    const result = await this.authService.create(registerUserDto);
+    return result;
   }
 
   @Get()
