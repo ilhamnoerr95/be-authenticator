@@ -15,7 +15,7 @@ export class AuthController {
   async create(@Body() registerUserDto: RegisterUser) {
     console.log('create user', {
       email: registerUserDto.email,
-      password: registerUserDto.password,
+      username: registerUserDto.username,
     });
 
     const result = await this.authService.create(registerUserDto);
