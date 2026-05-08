@@ -5,5 +5,5 @@ export class RegisterUser {
   email: string;
 
   @IsNotEmpty()
-  password: string;
+  username: string;
 }

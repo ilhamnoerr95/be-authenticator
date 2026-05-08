@@ -8,7 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      // config service bisa di akses darimanapun
+      // config env service bisa di akses darimanapun
       isGlobal: true,
     }),
     AuthModule,
