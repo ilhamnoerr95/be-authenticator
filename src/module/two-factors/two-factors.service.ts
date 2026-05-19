@@ -8,15 +8,19 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import * as QRCode from 'qrcode';
-import { TwoFactorsRepository } from './repositories/two-factors.repository';
-import { SetupTwoFactorDto } from './dto/setup-2fa.dto';
-import { VerifyTwoFactorDto } from './dto/verify-2fa.dto';
-import { ValidateOtpDto } from './dto/validate-otp.dto';
+import type { ClientAppContext } from '../../common/types/client-app.interface';
+import { generateBackupCodes } from '../../common/utils/backup-codes.util';
+import { decrypt, encrypt } from '../../common/utils/encryption.util';
 import { DisableTwoFactorDto } from './dto/disable-2fa.dto';
-import { SetupTwoFactorResult, TwoFactorActionResult, ValidateOtpResult } from './types/two-factors.types';
-import { encrypt, decrypt } from '../common/utils/encryption.util';
-import { generateBackupCodes } from '../common/utils/backup-codes.util';
-import type { ClientAppContext } from '../common/types/client-app.interface';
+import { SetupTwoFactorDto } from './dto/setup-2fa.dto';
+import { ValidateOtpDto } from './dto/validate-otp.dto';
+import { VerifyTwoFactorDto } from './dto/verify-2fa.dto';
+import { TwoFactorsRepository } from './repositories/two-factors.repository';
+import {
+  SetupTwoFactorResult,
+  TwoFactorActionResult,
+  ValidateOtpResult,
+} from './types/two-factors.types';
 
 @Injectable()
 export class TwoFactorsService {
@@ -46,7 +50,10 @@ export class TwoFactorsService {
     return { userId: user.id, qrCodeDataUrl, manualEntryKey: secret, backupCodes };
   }
 
-  async verify(dto: VerifyTwoFactorDto, clientApp: ClientAppContext): Promise<TwoFactorActionResult> {
+  async verify(
+    dto: VerifyTwoFactorDto,
+    clientApp: ClientAppContext,
+  ): Promise<TwoFactorActionResult> {
     this.logger.log(`Verifying 2FA for user ${dto.userId} [app: ${clientApp.name}]`);
 
     const user = await this.twoFactorsRepository.findUserById(dto.userId, clientApp.id);
@@ -61,7 +68,10 @@ export class TwoFactorsService {
       throw new UnprocessableEntityException('2FA setup not initiated. Call /setup first');
     }
 
-    const { valid: isValid } = verifySync({ token: dto.token, secret: decrypt(secret.secretEncrypted) });
+    const { valid: isValid } = verifySync({
+      token: dto.token,
+      secret: decrypt(secret.secretEncrypted),
+    });
     if (!isValid) throw new BadRequestException('Invalid OTP token');
 
     await this.twoFactorsRepository.markSecretVerified(dto.userId);
@@ -87,7 +97,10 @@ export class TwoFactorsService {
     return { valid };
   }
 
-  async disable(dto: DisableTwoFactorDto, clientApp: ClientAppContext): Promise<TwoFactorActionResult> {
+  async disable(
+    dto: DisableTwoFactorDto,
+    clientApp: ClientAppContext,
+  ): Promise<TwoFactorActionResult> {
     this.logger.log(`Disabling 2FA for user ${dto.userId} [app: ${clientApp.name}]`);
 
     const user = await this.twoFactorsRepository.findUserById(dto.userId, clientApp.id);
@@ -100,7 +113,10 @@ export class TwoFactorsService {
     const secret = await this.twoFactorsRepository.findSecretByUserId(dto.userId);
     if (!secret) throw new UnprocessableEntityException('Two factor secret not found');
 
-    const { valid: isValid } = verifySync({ token: dto.token, secret: decrypt(secret.secretEncrypted) });
+    const { valid: isValid } = verifySync({
+      token: dto.token,
+      secret: decrypt(secret.secretEncrypted),
+    });
     if (!isValid) throw new BadRequestException('Invalid OTP token');
 
     await this.twoFactorsRepository.disableTwoFactor(dto.userId);

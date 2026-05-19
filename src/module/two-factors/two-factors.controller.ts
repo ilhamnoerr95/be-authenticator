@@ -1,13 +1,13 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiHeaders, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { TwoFactorsService } from './two-factors.service';
-import { SetupTwoFactorDto } from './dto/setup-2fa.dto';
-import { VerifyTwoFactorDto } from './dto/verify-2fa.dto';
-import { ValidateOtpDto } from './dto/validate-otp.dto';
+import { GetClientApp } from '../../common/decorators/client-app.decorator';
+import { ClientAppGuard } from '../../common/guards/client-app.guard';
+import type { ClientAppContext } from '../../common/types/client-app.interface';
 import { DisableTwoFactorDto } from './dto/disable-2fa.dto';
-import { ClientAppGuard } from '../common/guards/client-app.guard';
-import { GetClientApp } from '../common/decorators/client-app.decorator';
-import type { ClientAppContext } from '../common/types/client-app.interface';
+import { SetupTwoFactorDto } from './dto/setup-2fa.dto';
+import { ValidateOtpDto } from './dto/validate-otp.dto';
+import { VerifyTwoFactorDto } from './dto/verify-2fa.dto';
+import { TwoFactorsService } from './two-factors.service';
 
 @ApiTags('Two-Factors')
 @ApiHeaders([

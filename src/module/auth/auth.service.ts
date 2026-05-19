@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AuthRepository } from './repositories/auth.repository';
+import type { ClientAppContext } from '../../common/types/client-app.interface';
 import { RegisterUserDto } from './dto/register-user.dto';
-import type { ClientAppContext } from '../common/types/client-app.interface';
+import { AuthRepository } from './repositories/auth.repository';
 import { RegisteredUserResult, UserWithAppInfo } from './types/auth.types';
 
 @Injectable()
@@ -10,7 +10,10 @@ export class AuthService {
 
   constructor(private readonly authRepository: AuthRepository) {}
 
-  async registerUser(dto: RegisterUserDto, clientApp: ClientAppContext): Promise<RegisteredUserResult> {
+  async registerUser(
+    dto: RegisterUserDto,
+    clientApp: ClientAppContext,
+  ): Promise<RegisteredUserResult> {
     this.logger.log(`Registering user ${dto.email} for client app [${clientApp.name}]`);
 
     const existing = await this.authRepository.findUserByEmailAndClientApp(dto.email, clientApp.id);

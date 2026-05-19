@@ -7,8 +7,8 @@ import {
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { WinstonModule } from 'nest-winston';
-import { HttpExceptionFilter } from '../common/filter/http-exception.filter';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filter/http-exception.filter';
 import { winstonConfig } from './logger/logger.config';
 
 async function bootstrap() {

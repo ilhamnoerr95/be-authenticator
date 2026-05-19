@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { ClientAppGuard } from '../../common/guards/client-app.guard';
 import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
 import { AuthRepository } from './repositories/auth.repository';
-import { ClientAppGuard } from '../common/guards/client-app.guard';
 
 @Module({
   controllers: [AuthController],
