@@ -14,58 +14,56 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-model UserTester {
-  id      String            @id @default(uuid())
-  email    String  @unique
-  username String   @unique
-} 
 
 // identity user
 model IdentityUser {
-// email dan username gak perlu unik karena 
-// setiap applikasi pasti databasenya beda, bisa jadi email dan username bakal sama
-  id      String            @id @default(uuid())
-  email    String 
-  username String
-  isTwoFactorEnabled  Boolean  @default(false)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  
-  twoFactorSecret    TwoFactorSecret?
-  userApplication  UserApplication[]
- }
-  
- model TwoFactorSecret {
-  id               String   @id @default(uuid())
-  userId           String   @unique
-  secretEncrypted  String
-  verifiedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  // email dan username gak perlu unik karena 
+  // setiap applikasi pasti databasenya beda, bisa jadi email dan username bakal sama
+  id                 String   @id @default(uuid())
+  email              String
+  username           String
+  isTwoFactorEnabled Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  twoFactorSecret TwoFactorSecret?
+  userApplication UserApplication[]
+}
+
+model TwoFactorSecret {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  secretEncrypted String
+  backupCodes     String[]  @default([])
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   identityUser IdentityUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
- model ClientApp {
-	id              String           @id @default(uuid())
-  name            String
-  clientId        String           @unique
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  
+model ClientApp {
+  id           String   @id @default(uuid())
+  name         String
+  clientId     String   @unique
+  clientSecret String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   userApplication UserApplication[]
- }
- 
- model UserApplication {
-  id         String   @id @default(uuid())
-  userId     String
-  clientAppId String
-  createdAt  DateTime @default(now())
+}
 
-  user       IdentityUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientApp  ClientApp @relation(fields: [clientAppId], references: [id], onDelete: Cascade)
+model UserApplication {
+  id             String   @id @default(uuid())
+  userId         String
+  clientAppId    String
+  externalUserId String?
+  createdAt      DateTime @default(now())
 
-// unik: jadi 1 userid && clientAppid harus unik. rulesnya
+  user      IdentityUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientApp ClientApp    @relation(fields: [clientAppId], references: [id], onDelete: Cascade)
+
   @@unique([userId, clientAppId])
   @@index([clientAppId])
+  @@index([clientAppId, externalUserId])
 }
