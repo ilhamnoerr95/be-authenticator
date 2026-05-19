@@ -1,98 +1,456 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# BE Authenticator
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Dedicated Two-Factor Authentication (2FA) service berbasis TOTP (Time-based One-Time Password). Berfungsi sebagai server 2FA terpusat yang bisa dipakai oleh banyak aplikasi berbeda.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Daftar Isi
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- [Cara Setup & Jalankan](#cara-setup--jalankan)
+- [Cara Daftarkan Aplikasi (ClientApp)](#cara-daftarkan-aplikasi-clientapp)
+- [Alur Lengkap Penggunaan 2FA](#alur-lengkap-penggunaan-2fa)
+- [API Reference](#api-reference)
+- [Diagram Arsitektur](#diagram-arsitektur)
+- [Catatan Keamanan](#catatan-keamanan)
+- [Development](#development)
 
-## Project setup
+---
+
+## Cara Setup & Jalankan
+
+### 1. Clone & Install
 
 ```bash
-$ pnpm install
+git clone <repo-url>
+cd be-authenticator
+pnpm install
 ```
 
-## Compile and run the project
+### 2. Setup Environment
+
+Buat file `.env` di root project:
+
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/be_authenticator"
+ENCRYPTION_KEY="<64-karakter-hex>"   # generate: openssl rand -hex 32
+APP_NAME="MyApp Authenticator"
+PORT=3000
+```
+
+### 3. Setup Database
 
 ```bash
-# development
-$ pnpm run start
+# Jalankan semua migration
+pnpm prisma migrate deploy
 
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+# Generate Prisma client
+pnpm prisma generate
 ```
 
-## Run tests
+### 4. Jalankan Server
 
 ```bash
-# unit tests
-$ pnpm run test
+# Development (hot reload)
+pnpm start:dev
 
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+# Production
+pnpm build
+pnpm start:prod
 ```
 
-## Deployment
+Server berjalan di `http://localhost:3000`  
+Swagger docs di `http://localhost:3000/api/docs`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Cara Daftarkan Aplikasi (ClientApp)
+
+Setiap aplikasi yang ingin menggunakan 2FA service ini perlu memiliki `clientId` dan `clientSecret`. Ini dilakukan **satu kali** saat onboarding aplikasi baru.
+
+Masukkan data ke tabel `ClientApp` di database (bisa via Prisma Studio atau SQL langsung):
+
+```sql
+INSERT INTO "ClientApp" (id, name, "clientId", "clientSecret", "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid(),
+  'Nama Aplikasi Saya',
+  'my-app-client-id',
+  'my-app-client-secret-yang-kuat',
+  NOW(),
+  NOW()
+);
+```
+
+Atau gunakan Prisma Studio:
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+pnpm prisma studio
+# Buka http://localhost:5555, masuk ke tabel ClientApp, tambah record baru
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Simpan `clientId` dan `clientSecret` di secret manager aplikasi Anda. Dua nilai ini wajib dikirim di setiap request ke BE Authenticator.
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## Alur Lengkap Penggunaan 2FA
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Gambaran Besar
 
-## Support
+```
+User                  Frontend (FE)          Backend Aplikasi (BE)     BE Authenticator
+ │                        │                          │                        │
+ │  1. Klik "Aktifkan 2FA"│                          │                        │
+ │──────────────────────> │                          │                        │
+ │                        │ 2. POST /enable-2fa      │                        │
+ │                        │ ──────────────────────> │                        │
+ │                        │                          │ 3. POST /api/v1/two-factors/setup
+ │                        │                          │ ─────────────────────────────> │
+ │                        │                          │                        │ 4. Generate secret,
+ │                        │                          │                        │    QR code, backup codes
+ │                        │                          │ <───────────────────────────── │
+ │                        │ 5. Return QR code        │                        │
+ │                        │ <────────────────────── │                        │
+ │  6. Tampilkan QR code  │                          │                        │
+ │  <─────────────────── │                          │                        │
+ │                        │                          │                        │
+ │  7. Scan QR dengan     │                          │                        │
+ │     Google Auth App    │                          │                        │
+ │                        │                          │                        │
+ │  8. Masukkan kode OTP  │                          │                        │
+ │  (6 digit dari app)    │                          │                        │
+ │──────────────────────> │                          │                        │
+ │                        │ 9. POST /verify-2fa      │                        │
+ │                        │ ──────────────────────> │                        │
+ │                        │                          │ 10. POST /api/v1/two-factors/verify
+ │                        │                          │ ─────────────────────────────> │
+ │                        │                          │                        │ 11. Validasi OTP,
+ │                        │                          │                        │     aktifkan 2FA
+ │                        │                          │ <───────────────────────────── │
+ │                        │ 12. 2FA aktif!           │                        │
+ │  <─────────────────── │                          │                        │
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+### Fase 1: Register User
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Sebelum bisa setup 2FA, user harus terdaftar di BE Authenticator. Ini biasanya dilakukan saat user pertama kali login atau daftar di aplikasi Anda.
 
-## License
+**Di BE Aplikasi Anda**, panggil:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```http
+POST http://localhost:3000/api/v1/auth/register
+x-client-id: my-app-client-id
+x-client-secret: my-app-client-secret-yang-kuat
+Content-Type: application/json
+
+{
+  "email": "budi@gmail.com",
+  "username": "budi",
+  "externalUserId": "user-id-di-database-aplikasi-anda"
+}
+```
+
+Response:
+```json
+{
+  "userId": "uuid-internal-di-authenticator",
+  "email": "budi@gmail.com",
+  "username": "budi",
+  "clientAppId": "uuid-client-app",
+  "isTwoFactorEnabled": false,
+  "createdAt": "2026-05-20T10:00:00.000Z"
+}
+```
+
+**Penting:** Simpan `userId` dari response ini di database aplikasi Anda. Ini yang akan dipakai untuk semua operasi 2FA selanjutnya.
+
+---
+
+### Fase 2: Setup 2FA (Generate QR Code)
+
+Dipanggil saat user klik tombol "Aktifkan 2FA" di settings profil.
+
+**Di BE Aplikasi Anda**, panggil:
+
+```http
+POST http://localhost:3000/api/v1/two-factors/setup
+x-client-id: my-app-client-id
+x-client-secret: my-app-client-secret-yang-kuat
+Content-Type: application/json
+
+{
+  "userId": "uuid-internal-di-authenticator"
+}
+```
+
+Response:
+```json
+{
+  "userId": "uuid-internal-di-authenticator",
+  "qrCodeDataUrl": "data:image/png;base64,iVBORw0KGgo...",
+  "manualEntryKey": "JBSWY3DPEHPK3PXP",
+  "backupCodes": [
+    "A1B2C3D4E5",
+    "F6G7H8I9J0",
+    "..."
+  ]
+}
+```
+
+**Apa yang dilakukan FE:**
+- Tampilkan `qrCodeDataUrl` sebagai gambar: `<img src={qrCodeDataUrl} />`
+- Tampilkan `manualEntryKey` sebagai alternatif jika tidak bisa scan QR
+- Tampilkan `backupCodes` dan minta user menyimpannya di tempat aman (hanya muncul sekali!)
+
+**User kemudian:**
+1. Buka Google Authenticator / Authy / app TOTP apapun
+2. Tap tombol "+" atau "Tambah akun"
+3. Scan QR code yang ditampilkan FE
+
+Akun akan muncul di app authenticator dan mulai generate kode 6 digit yang berganti setiap 30 detik.
+
+---
+
+### Fase 3: Verify & Aktifkan 2FA
+
+Setelah scan QR, user harus memasukkan kode OTP pertama sebagai konfirmasi bahwa setup berhasil.
+
+**Di FE:** Tampilkan form input 6 digit.
+
+**Di BE Aplikasi Anda**, setelah terima input dari FE:
+
+```http
+POST http://localhost:3000/api/v1/two-factors/verify
+x-client-id: my-app-client-id
+x-client-secret: my-app-client-secret-yang-kuat
+Content-Type: application/json
+
+{
+  "userId": "uuid-internal-di-authenticator",
+  "token": "123456"
+}
+```
+
+Response sukses:
+```json
+{
+  "success": true,
+  "message": "Two factor authentication enabled successfully"
+}
+```
+
+Setelah ini, `isTwoFactorEnabled` user berubah menjadi `true`. Update juga status di database aplikasi Anda.
+
+---
+
+### Fase 4: Login dengan 2FA (Alur Sehari-hari)
+
+Setelah 2FA aktif, setiap login user harus melewati 2 tahap:
+
+**Tahap 1 — Verifikasi password** (di BE Aplikasi Anda sendiri, tidak lewat BE Authenticator):
+
+```
+User → FE → BE Aplikasi → cek password di database aplikasi
+```
+
+Jika password benar, jangan langsung berikan access token. Tandai session sebagai "pending 2FA".
+
+**Tahap 2 — Verifikasi OTP:**
+
+```
+User buka Google Auth App → lihat kode 6 digit → masukkan di FE
+```
+
+**Di BE Aplikasi Anda**, panggil:
+
+```http
+POST http://localhost:3000/api/v1/two-factors/validate
+x-client-id: my-app-client-id
+x-client-secret: my-app-client-secret-yang-kuat
+Content-Type: application/json
+
+{
+  "userId": "uuid-internal-di-authenticator",
+  "token": "789012"
+}
+```
+
+Response:
+```json
+{
+  "valid": true
+}
+```
+
+Jika `valid: true` → buat dan kirim access token ke FE.  
+Jika `valid: false` → tolak login, minta user coba lagi.
+
+---
+
+### Fase 5: Nonaktifkan 2FA
+
+Dipanggil saat user klik "Matikan 2FA" di settings. Butuh OTP sebagai konfirmasi keamanan.
+
+```http
+POST http://localhost:3000/api/v1/two-factors/disable
+x-client-id: my-app-client-id
+x-client-secret: my-app-client-secret-yang-kuat
+Content-Type: application/json
+
+{
+  "userId": "uuid-internal-di-authenticator",
+  "token": "345678"
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Two factor authentication disabled successfully"
+}
+```
+
+---
+
+## API Reference
+
+Base URL: `http://localhost:3000/api/v1`
+
+Semua endpoint butuh header:
+```
+x-client-id: <client-id-aplikasi>
+x-client-secret: <client-secret-aplikasi>
+```
+
+### Auth
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| `POST` | `/auth/register` | Daftarkan user baru |
+| `GET` | `/auth/users` | Ambil semua user aplikasi ini |
+| `GET` | `/auth/users/:userId` | Ambil detail user by ID |
+
+### Two-Factors
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| `POST` | `/two-factors/setup` | Mulai setup 2FA, dapat QR code |
+| `POST` | `/two-factors/verify` | Konfirmasi setup dengan OTP pertama |
+| `POST` | `/two-factors/validate` | Validasi OTP saat login |
+| `POST` | `/two-factors/disable` | Nonaktifkan 2FA |
+
+---
+
+## Diagram Arsitektur
+
+### Hubungan Antar Komponen
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        EKOSISTEM APLIKASI                        │
+│                                                                   │
+│  ┌──────────────┐     ┌──────────────────────┐                  │
+│  │              │     │   Backend Aplikasi A  │                  │
+│  │   User       │────>│   (Node/Laravel/dll)  │──────┐           │
+│  │   Browser    │     │                       │      │           │
+│  │              │     │ - Kelola user         │      │           │
+│  └──────────────┘     │ - Autentikasi password│      │           │
+│                        │ - Business logic      │      │           │
+│                        └──────────────────────┘      │           │
+│                                                       │ HTTP +    │
+│  ┌──────────────┐     ┌──────────────────────┐      │ x-client  │
+│  │              │     │   Backend Aplikasi B  │      │ headers   │
+│  │   User       │────>│   (aplikasi lain)     │──────│           │
+│  │   Mobile App │     │                       │      │           │
+│  │              │     └──────────────────────┘      │           │
+│  └──────────────┘                                    ▼           │
+│                                          ┌───────────────────┐   │
+│  ┌──────────────────┐                   │                   │   │
+│  │  Google Auth /   │  scan QR /        │  BE Authenticator │   │
+│  │  Authy / TOTP App│  generate OTP     │                   │   │
+│  │                  │<─────────────────>│  - Manage secrets │   │
+│  └──────────────────┘                   │  - Generate QR    │   │
+│                                          │  - Validate OTP   │   │
+│                                          │                   │   │
+│                                          └────────┬──────────┘   │
+│                                                   │              │
+│                                          ┌────────▼──────────┐   │
+│                                          │    PostgreSQL DB   │   │
+│                                          │                   │   │
+│                                          │  - ClientApp      │   │
+│                                          │  - IdentityUser   │   │
+│                                          │  - TwoFactorSecret│   │
+│                                          │  - UserApplication│   │
+│                                          └───────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Sequence Diagram Login dengan 2FA
+
+```
+FE              BE App          BE Authenticator    Google Auth App
+│               │               │                   │
+│─── login ──> │               │                   │
+│  (email+pass) │               │                   │
+│               │─ cek password │                   │
+│               │  di DB App    │                   │
+│               │               │                   │
+│ <─ "masukkan  │               │                   │
+│     kode 2FA" │               │                   │
+│               │               │                   │
+│               │               │    ┌──────────────┤
+│               │               │    │ User buka    │
+│               │               │    │ app, lihat   │
+│               │               │    │ kode 6 digit │
+│               │               │    └──────────────┤
+│               │               │                   │
+│─ submit OTP ─>│               │                   │
+│  "123456"     │               │                   │
+│               │── POST /two-factors/validate ────>│
+│               │   { userId, token: "123456" }     │
+│               │               │                   │
+│               │ <─ { valid: true } ──────────────│
+│               │               │                   │
+│               │ generate JWT  │                   │
+│               │ access token  │                   │
+│               │               │                   │
+│ <── JWT ──── │               │                   │
+│  (login berhasil)             │                   │
+```
+
+---
+
+## Catatan Keamanan
+
+1. **Jangan expose BE Authenticator ke public internet.** Ini adalah internal service — hanya BE aplikasi Anda yang boleh memanggil.
+
+2. **Simpan `clientSecret` dengan aman.** Gunakan secret manager (AWS Secrets Manager, Vault, dsb.), jangan hardcode di code.
+
+3. **`ENCRYPTION_KEY` harus 32 bytes (64 karakter hex).** Jika bocor, semua secret TOTP di database bisa didekripsi. Rotate key secara berkala.
+
+4. **Backup codes hanya ditampilkan sekali** saat setup. Pastikan FE memberi tahu user untuk menyimpannya. Jika user kehilangan akses ke authenticator app dan backup codes, 2FA tidak bisa dinonaktifkan (perlu admin reset manual).
+
+5. **Rate limiting.** Tambahkan rate limiting di endpoint `/validate` di sisi BE Aplikasi Anda untuk mencegah brute force OTP.
+
+---
+
+## Development
+
+```bash
+# Jalankan test
+pnpm test
+
+# Test dengan coverage
+pnpm test:cov
+
+# Prisma Studio (GUI database)
+pnpm prisma studio
+
+# Format code
+pnpm format
+
+# Lint
+pnpm lint
+```
